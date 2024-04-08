@@ -24,6 +24,63 @@ api = Api(app)
 def index():
     return "<h1>Code challenge</h1>"
 
+class Restaurants(Resource):
+    def get(self):
+        restaurants = [restaurant.to_dict(rules=['-pizzas','-restaurant_pizzas']) 
+                      for restaurant in Restaurant.query.all()]
+        return make_response(restaurants, 200)
+
+
+api.add_resource(Restaurants, '/restaurants')
+
+class RestaurantsById(Resource):
+
+    def get(self, id):
+        restaurant = Restaurant.query.filter(Restaurant.id == id).one_or_none()
+
+        if restaurant is None:
+
+            return make_response({'error': 'Restaurant not found'}, 404)
+        
+        return make_response(restaurant.to_dict(), 200)
+    
+    def delete(self, id):
+        restaurant = Restaurant.query.filter(Restaurant.id == id).one_or_none()
+
+        if restaurant is None:
+
+            return make_response({'error': 'Restaurant not found'}, 404)
+        
+        db.session.delete(restaurant)
+        db.session.commit()
+        return make_response({}, 204)
+    
+api.add_resource(RestaurantsById, '/restaurants/<int:id>')
+
+class Pizzas(Resource):
+    def get(self):
+        pizzas = [pizza.to_dict(rules=['-restaurants','-restaurant_pizzas']) 
+                      for pizza in Pizza.query.all()]
+        return make_response(pizzas, 200)
+
+api.add_resource(Pizzas, '/pizzas')
+
+class RestaurantPizzas(Resource):
+    def post(self):
+        fields = request.get_json()
+        try:
+            restaurant_pizza = RestaurantPizza(
+                price=fields['price'], 
+                pizza_id=fields['pizza_id'],
+                restaurant_id=fields['restaurant_id']
+                )
+            db.session.add(restaurant_pizza)
+            db.session.commit()
+            return make_response(restaurant_pizza.to_dict(rules=['-missions']), 201)
+        except ValueError:
+            return make_response({'errors': ['validation errors']}, 400)
+
+api.add_resource(RestaurantPizzas, '/restaurant_pizzas')
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
